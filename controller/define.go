@@ -13,13 +13,13 @@ type Device struct {
 }
 
 type identity struct {
-	Did  int `json:"did"`
-	Role int `json:"role"`
+	Did  int `json:"did" binding:"required"`
+	Role int `json:"role" binding:"required"`
 }
 
 type command struct {
-	ToDid int    `json:"to_did"`
-	CMD   string `json:"cmd"`
+	ToDid int    `json:"to_did"  binding:"required"`
+	CMD   string `json:"cmd"  binding:"required"`
 }
 
 type itemData struct {

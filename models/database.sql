@@ -15,6 +15,7 @@ CREATE TABLE `item` (
     `mq135`      float(6,2)  DEFAULT '0',
     `temp`       float(6,2)  DEFAULT '0',
     `wet`        float(6,2)  DEFAULT '0',
+    `created_on` int(11) DEFAULT '0',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COMMENT='用户管理';
 

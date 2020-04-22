@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -22,12 +23,15 @@ func HandleConnection(conn net.Conn) {
 			break
 		}
 		fmt.Println("number:", num)
-		HandleMessage(buffer, device)
+		HandleMessage(buffer[:num], &device)
 	}
-	HandleDisconnect(device)
+	HandleDisconnect(&device)
 }
 
-func HandleMessage(msg []byte, device Device) {
+// 消息类型
+// APP: 认证：{"did":1234,"role":1}
+// APP: 命令{ "to_did":0,"cmd":"getNodes"}
+func HandleMessage(msg []byte, device *Device) {
 	var err error
 	var id identity
 	var cmd command
@@ -63,17 +67,21 @@ func HandleMessage(msg []byte, device Device) {
 				return
 			}
 			device.Con.Write(json1)
-		case "send": //下发指令到下位机
-			node, ok := NodeList[cmd.ToDid]
-			if !ok {
-				device.Con.Write([]byte("Node Not Found!"))
-				return
+		default:
+			str := strings.Split(cmd.CMD,":")
+			if str[0] == "send" {
+				//下发指令到下位机
+				node, ok := NodeList[cmd.ToDid]
+				if !ok {
+					device.Con.Write([]byte("Node Not Found!"))
+					return
+				}
+				node.Con.Write([]byte(str[1]))
 			}
-			node.Con.Write([]byte(cmd.CMD))
-
 		}
 	case ROLE_NODE:
-		err = json.Unmarshal(msg, data)
+		// 存储至mysql
+		err = json.Unmarshal(msg, &data)
 		if err != nil {
 			device.Con.Write([]byte("Error:" + err.Error()))
 			fmt.Println(err.Error())
@@ -87,11 +95,15 @@ func HandleMessage(msg []byte, device Device) {
 			Temp:      data.Temp,
 			Wet:       data.Wet,
 		}
-		_, err = models.NewItem(item)
+		_, err = models.NewItem(&item)
 		if err != nil {
 			fmt.Println("Error: " + err.Error())
 			device.Con.Write([]byte("Error:" + err.Error()))
 			return
+		}
+		// 发送至APP
+		for _, app := range AppList {
+			app.Con.Write(msg)
 		}
 	default: // 获取身份
 		err = json.Unmarshal(msg, &id)
@@ -101,28 +113,39 @@ func HandleMessage(msg []byte, device Device) {
 			return
 		}
 		device.Did = id.Did
-		device.Role = ROLE_USER
-		AppList[id.Did] = device
+		device.Role = id.Role
 		if device.Role == ROLE_USER {
-			AppList[device.Did] = device //添加至App在线列表
+			AppList[device.Did] = *device //添加至App在线列表
 		} else if device.Role == ROLE_NODE {
-			NodeList[device.Did] = device //添加至Node在线列表
+			NodeList[device.Did] = *device //添加至Node在线列表
 		}
 	}
 }
 
-func HandleDisconnect(device Device) {
+func HandleDisconnect(device *Device) {
+	key := -1
 	for k, v := range AppList {
 		if v.Con == device.Con {
+			key = k
 			fmt.Println("APP_", k, " at ", device.Con.RemoteAddr().String()+" 连接已断开.")
-			return
+			break
 		}
 	}
+	if key != -1 {
+		delete(AppList, key)
+		return
+	}
+	key = -1
 	for k, v := range NodeList {
 		if v.Con == device.Con {
+			key = k
 			fmt.Println("Node_", k, " at ", device.Con.RemoteAddr().String()+" 连接已断开.")
-			return
+			break
 		}
+	}
+	if key != -1 {
+		delete(NodeList, key)
+		return
 	}
 	fmt.Println("未知设备", " at ", device.Con.RemoteAddr().String()+" 连接已断开.")
 	return

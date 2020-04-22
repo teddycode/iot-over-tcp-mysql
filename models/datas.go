@@ -15,7 +15,7 @@ type Item struct {
 }
 
 // 增加
-func NewItem(item Item) (bool, error) {
+func NewItem(item *Item) (bool, error) {
 	err := db.Create(item).Error
 	if err != nil {
 		return false, err
@@ -26,7 +26,7 @@ func NewItem(item Item) (bool, error) {
 // 查询100 条数据
 func FindItemsByDId(did int) (*[]Item, error) {
 	items := new([]Item)
-	err := db.Limit(100).Order("created_on desc").Where("user_id = ?", did).Find(items).Error
+	err := db.Limit(100).Order("created_on desc").Where("did = ?", did).Find(items).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return items, err
 	}
