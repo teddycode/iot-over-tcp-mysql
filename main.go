@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fmt.Println("正在开启TCP服务...")
-	src := "localhost:" + strconv.Itoa(config.HTTPPort)
+	src := "192.168.43.243:" + strconv.Itoa(config.HTTPPort)
 	listener, _ := net.Listen("tcp", src)
 	fmt.Printf("TCP开启成功： %s.\n", src)
 

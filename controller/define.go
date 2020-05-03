@@ -32,3 +32,4 @@ type itemData struct {
 
 var NodeList = make(map[int]Device, 20) //在线节点列表
 var AppList = make(map[int]Device, 10)  //在线App列表
+var SubsList = make(map[int] []int,10)  //app订阅列表

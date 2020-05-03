@@ -36,7 +36,14 @@ func HandleMessage(msg []byte, device *Device) {
 	var id identity
 	var cmd command
 	var data itemData
-	fmt.Println("设备消息:", device.Con.RemoteAddr().String(), "> "+string(msg))
+	if device.Role == ROLE_USER {
+		fmt.Println("APP消息:", device.Con.RemoteAddr().String(), "> "+string(msg))
+	}else if device.Role == ROLE_NODE {
+		fmt.Println("节点消息:", device.Con.RemoteAddr().String(), "> "+string(msg))
+	}else {
+		fmt.Println("未知设备:", device.Con.RemoteAddr().String(), "> "+string(msg))
+	}
+
 	switch device.Role {
 	case ROLE_USER:
 		err = json.Unmarshal(msg, &cmd)
@@ -59,14 +66,31 @@ func HandleMessage(msg []byte, device *Device) {
 				return
 			}
 			device.Con.Write(jsonData)
-		case "getNodes": // 获取节点
-			json1, err := json.Marshal(NodeList)
+		case "getNodes": // 获取节点列表
+			var n []int
+			for k,_ := range NodeList {
+				n = append(n, k)
+			}
+			json1, err := json.Marshal(n)
 			if err != nil {
 				device.Con.Write([]byte("Error:" + err.Error()))
 				fmt.Println(err.Error())
 				return
 			}
 			device.Con.Write(json1)
+		case "subNode": // 订阅节点
+			SubsList[cmd.ToDid] = append(SubsList[cmd.ToDid], device.Did)
+		case "deSubNode": // 取消订阅节点
+			index :=-1
+			for i := range SubsList[cmd.ToDid]{
+				if SubsList[cmd.ToDid][i] == device.Did{
+					index=i
+				}
+			}
+			if index!=-1{
+				SubsList[cmd.ToDid] = append(SubsList[cmd.ToDid][:index],SubsList[cmd.ToDid][index+1:]...)
+			}
+
 		default:
 			str := strings.Split(cmd.CMD,":")
 			if str[0] == "send" {
@@ -83,7 +107,7 @@ func HandleMessage(msg []byte, device *Device) {
 		// 存储至mysql
 		err = json.Unmarshal(msg, &data)
 		if err != nil {
-			device.Con.Write([]byte("Error:" + err.Error()))
+			//device.Con.Write([]byte("Error:" + err.Error()))
 			fmt.Println(err.Error())
 		}
 		item := models.Item{
@@ -98,12 +122,14 @@ func HandleMessage(msg []byte, device *Device) {
 		_, err = models.NewItem(&item)
 		if err != nil {
 			fmt.Println("Error: " + err.Error())
-			device.Con.Write([]byte("Error:" + err.Error()))
+			//device.Con.Write([]byte("Error:" + err.Error()))
 			return
 		}
-		// 发送至APP
-		for _, app := range AppList {
-			app.Con.Write(msg)
+		// 发送至已订阅节点的APP
+		for _,app := range SubsList[device.Did]{
+			if AppList[app].Con != nil{
+				AppList[app].Con.Write(msg)
+			}
 		}
 	default: // 获取身份
 		err = json.Unmarshal(msg, &id)
@@ -116,8 +142,10 @@ func HandleMessage(msg []byte, device *Device) {
 		device.Role = id.Role
 		if device.Role == ROLE_USER {
 			AppList[device.Did] = *device //添加至App在线列表
+			fmt.Println("当前设备身份为：APP")
 		} else if device.Role == ROLE_NODE {
 			NodeList[device.Did] = *device //添加至Node在线列表
+			fmt.Println("当前设备身份为：节点")
 		}
 	}
 }

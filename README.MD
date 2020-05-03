@@ -21,15 +21,22 @@ App、Node1、Node2连接至tcp服务器
 ```
 获取在线node列表
 ```
+request:
 { "to_did":0,"cmd":"getNodes"}
+response:
+{"12345":{"did":12345,"role":2},"2345":{"did":2345,"role":2}}
 ```
 向下位机发送指令
 ```
 { "to_did":2345,"cmd":"send:hello"}
+包括 阈值、风扇、蜂鸣器开关
 ```
-获取node的历史数据
+*获取node的历史数据
 ```
+request
 { "to_did":2345,"cmd":"getData"}
+response:
+[{"id":16,"created_on":1587569409,"did":2345,"light":100,"mq2":10.1,"mq135":10.3,"temp":30,"wet":100},{"id":15,"created_on":1587569370,"did":2345,"light":100,"mq2":10.1,"mq135":10.3,"temp":30,"wet":100}]
 ```
 ##### Node1、2
 认证身份
